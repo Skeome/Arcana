@@ -40,15 +40,6 @@ class MainActivity : ComponentActivity() {
         auth = Firebase.auth
         db = Firebase.firestore
 
-        // --- This is placeholder logic from your previous step ---
-        // We are moving the real logic into our Firebase setup.
-        // val fireSpirit = SpiritCard("Fire Spirit", "Fire", 2, 3, 2, "A basic spirit of flame.")
-        // ... all other simulation logic ...
-        // println("\n--- PLAYING FIRST CARD ---")
-        // ... when (cardToPlay) ...
-        // --- End of placeholder logic ---
-
-
         // --- Default UI Code ---
         setContent {
             // This state will hold our userId once we get it
@@ -65,8 +56,11 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Pass the reactive userId state to our Composable
-                    Greeting(userId)
+                    // *** THIS IS THE ONLY CHANGE ***
+                    // We are now loading our new DungeonCrawlScreen
+                    // instead of the old "Greeting" text.
+                    DungeonCrawlScreen(userId)
+                    // ********************************
                 }
             }
         }
@@ -141,27 +135,5 @@ class MainActivity : ComponentActivity() {
             .addOnFailureListener { exception ->
                 Log.w(tag, "Error getting player document: ", exception)
             }
-    }
-}
-
-@Composable
-fun Greeting(userId: String?, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize().padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "User ID: $userId",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = modifier
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    ArcanaTheme {
-        Greeting("preview_user_id_123")
     }
 }
