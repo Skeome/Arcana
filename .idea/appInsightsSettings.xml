@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.github.skeome.arcana" />
+                  <option name="mobileSdkAppId" value="1:391414235525:android:341a26000f6bbe010d04ec" />
+                  <option name="projectId" value="arcana-nfc-rpg" />
+                  <option name="projectNumber" value="391414235525" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
