@@ -1,105 +1,167 @@
 package com.github.skeome.arcana
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.github.skeome.arcana.ui.theme.ArcanaTheme
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 
 class MainActivity : ComponentActivity() {
+
+    // Firebase instances
+    private lateinit var auth: FirebaseAuth
+    private lateinit var db: FirebaseFirestore
+    private val tag = "ArcanaMainActivity"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // --- 1. Create Our Card Instances ---
-        val fireSpirit = SpiritCard("Fire Spirit", "Fire", 2, 3, 2, "A basic spirit of flame.")
-        val waterElemental = SpiritCard("Water Elemental", "Water", 4, 3, 5, "A sturdy elemental.")
-        val fireball = SpellCard("Fireball", "Fire", 3, "Deal 4 damage to any target.")
-        val earthGolem = SpiritCard("Earth Golem", "Earth", 5, 4, 6, "Has Guard.")
+        // Initialize Firebase Auth and Firestore
+        auth = Firebase.auth
+        db = Firebase.firestore
 
-        // --- 2. Create Our Collections ---
-        val masterDeckList: List<Card> = listOf(
-            fireSpirit, waterElemental, fireball, earthGolem, fireSpirit, fireball
-        )
-        val playerDeck: MutableList<Card> = masterDeckList.toMutableList()
-        playerDeck.shuffle()
-        val playerHand: MutableList<Card> = mutableListOf()
-
-        // --- 3. Simulate Drawing ---
-        println("--- GAME START ---")
-        repeat(7) {
-            // Let's add a check so we don't crash if the deck is empty
-            if (playerDeck.isNotEmpty()) {
-                val drawnCard = playerDeck.removeFirst()
-                playerHand.add(drawnCard)
-            }
-        }
-
-        println("--- Player's Hand ---")
-        playerHand.forEach { card ->
-            println("In hand: ${card.name} (Cost: ${card.aetherCost})")
-        }
-
-        // --- 4. Simulate PLAYING a card with 'when' ---
-        println("\n--- PLAYING FIRST CARD ---")
-
-        // Let's get the first card from our hand
-        val cardToPlay = playerHand.first() // .first() just peeks at the first item
-
-        // Here is the 'when' statement.
-        // It checks the 'type' of the 'cardToPlay' variable.
-        when (cardToPlay) {
-            is SpiritCard -> {
-                // We're in this block, so Kotlin is now smart
-                // It 'smart-casts' cardToPlay to a SpiritCard
-                // so we can safely access .power and .health
-                println("It's a Spirit! Summoning '${cardToPlay.name}'.")
-                println("It has ${cardToPlay.power} Power and ${cardToPlay.health} Health.")
-            }
-            is SpellCard -> {
-                // We're in this block, so Kotlin 'smart-casts'
-                // cardToPlay to a SpellCard.
-                println("It's a Spell! Casting '${cardToPlay.name}'.")
-                println("Effect: ${cardToPlay.rulesText}")
-            }
-            else -> {
-                // A fallback, just in case
-                println("It's... something else?")
-            }
-        }
+        // --- This is placeholder logic from your previous step ---
+        // We are moving the real logic into our Firebase setup.
+        // val fireSpirit = SpiritCard("Fire Spirit", "Fire", 2, 3, 2, "A basic spirit of flame.")
+        // ... all other simulation logic ...
+        // println("\n--- PLAYING FIRST CARD ---")
+        // ... when (cardToPlay) ...
+        // --- End of placeholder logic ---
 
 
         // --- Default UI Code ---
         setContent {
+            // This state will hold our userId once we get it
+            var userId by remember { mutableStateOf<String?>("Logging in...") }
+
+            // This function will be called when the Activity is created
+            // It signs in the user and updates the userId state
+            signInAndSetupPlayer { uid ->
+                userId = uid
+            }
+
             ArcanaTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Greeting("Android")
+                    // Pass the reactive userId state to our Composable
+                    Greeting(userId)
                 }
             }
         }
     }
+
+    /**
+     * Signs the user in (anonymously for now) and triggers player account setup.
+     */
+    private fun signInAndSetupPlayer(onComplete: (String?) -> Unit) {
+        // As you noted, auth is working. We'll use signInAnonymously here
+        // to ensure we have a user session.
+        auth.signInAnonymously()
+            .addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    // Sign in success, update UI with the signed-in user's ID
+                    Log.d(tag, "signInAnonymously:success")
+                    val userId = auth.currentUser?.uid
+                    if (userId != null) {
+                        // This is the "Next Logical Step"!
+                        createPlayerAccountIfNotExist(userId)
+                    }
+                    onComplete(userId) // Update the UI
+                } else {
+                    // If sign in fails, display a message to the user.
+                    Log.w(tag, "signInAnonymously:failure", task.exception)
+                    onComplete("Login Failed") // Update the UI
+                }
+            }
+    }
+
+    /**
+     * This is the "Next Logical Step" from your blueprint.
+     * It checks if a 'playerAccounts' document exists for the given userId.
+     * If it does NOT exist, it creates one with default values.
+     */
+    private fun createPlayerAccountIfNotExist(userId: String) {
+        // 1. Get a reference to the 'playerAccounts' collection
+        val playerDocRef = db.collection("playerAccounts").document(userId)
+
+        // 2. Try to get the document
+        playerDocRef.get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    // 3. Document ALREADY exists.
+                    Log.d(tag, "Welcome back, player! Document already exists for: $userId")
+                    // We could load the player data here if we wanted to
+                } else {
+                    // 4. Document does NOT exist. This is a first-time login.
+                    Log.d(tag, "First-time login. Creating new player account for: $userId")
+
+                    // 5. Create the new account object (using the data class)
+                    val newAccount = PlayerAccount(
+                        username = "New Wizard", // Default username
+                        digitalInventory = listOf("card_001", "card_001", "card_004"), // Default starter deck
+                        playerIDCardUID = "", // No card linked yet
+                        hasUnlocked3D = false, // Not yet purchased
+                        player_location = PlayerLocation(0, 0), // Start at origin
+                        in_battle = false,
+                        event_log = listOf("Welcome to Arcana!")
+                    )
+
+                    // 6. Set the new document in Firestore
+                    playerDocRef.set(newAccount)
+                        .addOnSuccessListener {
+                            Log.d(tag, "Successfully created new player account for: $userId")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.w(tag, "Error creating player account for: $userId", e)
+                        }
+                }
+            }
+            .addOnFailureListener { exception ->
+                Log.w(tag, "Error getting player document: ", exception)
+            }
+    }
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+fun Greeting(userId: String?, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxSize().padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "User ID: $userId",
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = modifier
+        )
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
     ArcanaTheme {
-        Greeting("Android")
+        Greeting("preview_user_id_123")
     }
 }

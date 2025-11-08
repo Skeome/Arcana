@@ -7,9 +7,7 @@ plugins {
 
 android {
     namespace = "com.github.skeome.arcana"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.github.skeome.arcana"
@@ -34,9 +32,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     buildFeatures {
         compose = true
     }
@@ -51,7 +46,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.firebase.auth)
+    implementation(libs.firebase.auth.ktx)
+    implementation(libs.firebase.firestore.ktx)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
