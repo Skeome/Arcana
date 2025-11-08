@@ -26,6 +26,12 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 
+// Represents the primary game state: are we exploring or are we in a fight?
+enum class GameState {
+    DUNGEON_CRAWL,
+    BATTLE
+}
+
 class MainActivity : ComponentActivity() {
 
     // Firebase instances
@@ -44,6 +50,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             // This state will hold our userId once we get it
             var userId by remember { mutableStateOf<String?>("Logging in...") }
+            // This state holds the entire game's current view
+            var gameState by remember { mutableStateOf(GameState.DUNGEON_CRAWL) }
 
             // This function will be called when the Activity is created
             // It signs in the user and updates the userId state
@@ -56,11 +64,29 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // *** THIS IS THE ONLY CHANGE ***
-                    // We are now loading our new DungeonCrawlScreen
-                    // instead of the old "Greeting" text.
-                    DungeonCrawlScreen(userId)
-                    // ********************************
+                    // This is our main game state router.
+                    // It decides which screen to show the player.
+                    when (gameState) {
+                        GameState.DUNGEON_CRAWL -> {
+                            // Show the dungeon
+                            DungeonCrawlScreen(
+                                userId = userId,
+                                onStartBattle = {
+                                    Log.d(tag, "BATTLE TRIGGERED!")
+                                    gameState = GameState.BATTLE
+                                }
+                            )
+                        }
+                        GameState.BATTLE -> {
+                            // Show the battle screen
+                            BattleScreen(
+                                onBattleEnd = {
+                                    Log.d(tag, "Battle over, returning to dungeon.")
+                                    gameState = GameState.DUNGEON_CRAWL
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }

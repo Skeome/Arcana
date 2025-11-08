@@ -33,11 +33,12 @@ enum class Direction {
  * 0 = Wall
  * 1 = Hallway
  * 2 = Door
+ * 3 = ENCOUNTER TILE  <-- NEW TILE
  * 9 = Player Start
  */
 private val dungeonMap = listOf(
     listOf(0, 0, 0, 0, 0),
-    listOf(0, 9, 1, 1, 0),
+    listOf(0, 9, 1, 3, 0), // <-- Added '3' for encounter
     listOf(0, 0, 0, 2, 0),
     listOf(0, 1, 1, 1, 0),
     listOf(0, 0, 0, 0, 0)
@@ -59,9 +60,16 @@ private fun getStartPosition(): Pair<Int, Int> {
  * The main screen for the first-person dungeon crawler.
  * This Composable manages the game state (player position, facing)
  * and displays the viewport, mini-map, and controls.
+ *
+ * @param userId The logged-in user's ID.
+ * @param onStartBattle A new callback function to tell MainActivity
+ * that we need to switch to the BattleScreen.
  */
 @Composable
-fun DungeonCrawlScreen(userId: String?) {
+fun DungeonCrawlScreen(
+    userId: String?,
+    onStartBattle: () -> Unit // <-- NEW PARAMETER
+) {
     // --- Game State ---
     // The player's current X, Y position on the map
     var playerPos by remember { mutableStateOf(getStartPosition()) }
@@ -118,8 +126,15 @@ fun DungeonCrawlScreen(userId: String?) {
                 gameMessage = "You found a door!"
                 // TODO: Add logic to go to next level or trigger event
             }
-            // Later, a '3' could trigger a battle
-            // 3 -> { ... }
+            // *** NEW BATTLE LOGIC ***
+            3 -> {
+                // Stepped on an encounter tile!
+                playerPos = nextX to nextY
+                gameMessage = "You are ambushed!"
+                // Trigger the callback to switch screens
+                onStartBattle()
+            }
+            // **************************
         }
     }
 
@@ -140,8 +155,6 @@ fun DungeonCrawlScreen(userId: String?) {
         )
 
         // Center: The "Viewport"
-        // This is a placeholder. In 2D, we'd show a sprite. In 3D, a 3D model.
-        // For now, it just shows the game message.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -219,6 +232,7 @@ private fun MiniMap(map: List<List<Int>>, playerPos: Pair<Int, Int>, facing: Dir
                     val tileColor = when (tile) {
                         0 -> Color.Gray.copy(alpha = 0.5f) // Wall
                         2 -> Color.Yellow.copy(alpha = 0.7f) // Door
+                        3 -> Color.Red.copy(alpha = 0.7f) // Encounter
                         else -> Color.DarkGray // Hallway / Start
                     }
 
