@@ -17,56 +17,61 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         // --- 1. Create Our Card Instances ---
-        // (This part is unchanged)
         val fireSpirit = SpiritCard("Fire Spirit", "Fire", 2, 3, 2, "A basic spirit of flame.")
         val waterElemental = SpiritCard("Water Elemental", "Water", 4, 3, 5, "A sturdy elemental.")
         val fireball = SpellCard("Fireball", "Fire", 3, "Deal 4 damage to any target.")
         val earthGolem = SpiritCard("Earth Golem", "Earth", 5, 4, 6, "Has Guard.")
-        val heal = SpellCard("Heal", "Water", 1, "Restore 3 health to a Spirit.")
-        val windScout = SpiritCard("Wind Scout", "Wind", 1, 1, 1, "Draw a card.")
 
-        // --- 2. Create Our Collections (NOW TYPE-SAFE!) ---
-
-        // The master list is now a 'List<Card>'
+        // --- 2. Create Our Collections ---
         val masterDeckList: List<Card> = listOf(
-            fireSpirit, fireSpirit,
-            waterElemental,
-            fireball, fireball,
-            earthGolem,
-            heal,
-            windScout, windScout
+            fireSpirit, waterElemental, fireball, earthGolem, fireSpirit, fireball
         )
-
-        // The player deck is now a 'MutableList<Card>'
         val playerDeck: MutableList<Card> = masterDeckList.toMutableList()
-
         playerDeck.shuffle()
-
-        // The player hand is also a 'MutableList<Card>'
         val playerHand: MutableList<Card> = mutableListOf()
 
-
-        // --- 3. Simulate the Game! ---
+        // --- 3. Simulate Drawing ---
         println("--- GAME START ---")
-        println("Player's deck has ${playerDeck.size} cards.")
-        println("Shuffling deck...")
-
-        println("\n--- DRAWING HAND ---")
         repeat(7) {
-            val drawnCard = playerDeck.removeFirst()
-            playerHand.add(drawnCard)
+            // Let's add a check so we don't crash if the deck is empty
+            if (playerDeck.isNotEmpty()) {
+                val drawnCard = playerDeck.removeFirst()
+                playerHand.add(drawnCard)
+            }
         }
 
-        println("\n--- Player's Hand (Now with types!) ---")
+        println("--- Player's Hand ---")
         playerHand.forEach { card ->
-            // !! THIS IS THE BIG CHANGE !!
-            // We can now access '.name' and '.aetherCost' directly,
-            // because Kotlin knows every item in the list is a 'Card'.
-            println("Drew: ${card.name} (Cost: ${card.aetherCost})")
+            println("In hand: ${card.name} (Cost: ${card.aetherCost})")
         }
 
-        println("\n--- Deck After Draw ---")
-        println("Player's deck now has ${playerDeck.size} cards remaining.")
+        // --- 4. Simulate PLAYING a card with 'when' ---
+        println("\n--- PLAYING FIRST CARD ---")
+
+        // Let's get the first card from our hand
+        val cardToPlay = playerHand.first() // .first() just peeks at the first item
+
+        // Here is the 'when' statement.
+        // It checks the 'type' of the 'cardToPlay' variable.
+        when (cardToPlay) {
+            is SpiritCard -> {
+                // We're in this block, so Kotlin is now smart
+                // It 'smart-casts' cardToPlay to a SpiritCard
+                // so we can safely access .power and .health
+                println("It's a Spirit! Summoning '${cardToPlay.name}'.")
+                println("It has ${cardToPlay.power} Power and ${cardToPlay.health} Health.")
+            }
+            is SpellCard -> {
+                // We're in this block, so Kotlin 'smart-casts'
+                // cardToPlay to a SpellCard.
+                println("It's a Spell! Casting '${cardToPlay.name}'.")
+                println("Effect: ${cardToPlay.rulesText}")
+            }
+            else -> {
+                // A fallback, just in case
+                println("It's... something else?")
+            }
+        }
 
 
         // --- Default UI Code ---
@@ -83,7 +88,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ... (The Greeting and GreetingPreview functions at the bottom remain unchanged) ...
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(
