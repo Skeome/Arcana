@@ -17,6 +17,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         // --- 1. Create Our Card Instances ---
+        // (This part is unchanged)
         val fireSpirit = SpiritCard("Fire Spirit", "Fire", 2, 3, 2, "A basic spirit of flame.")
         val waterElemental = SpiritCard("Water Elemental", "Water", 4, 3, 5, "A sturdy elemental.")
         val fireball = SpellCard("Fireball", "Fire", 3, "Deal 4 damage to any target.")
@@ -24,11 +25,11 @@ class MainActivity : ComponentActivity() {
         val heal = SpellCard("Heal", "Water", 1, "Restore 3 health to a Spirit.")
         val windScout = SpiritCard("Wind Scout", "Wind", 1, 1, 1, "Draw a card.")
 
-        // --- 2. Create Our Collections ---
+        // --- 2. Create Our Collections (NOW TYPE-SAFE!) ---
 
-        // A 'listOf' is a read-only list. This is our "Master Deck" blueprint.
-        val masterDeckList = listOf(
-            fireSpirit, fireSpirit, // We can add multiple copies
+        // The master list is now a 'List<Card>'
+        val masterDeckList: List<Card> = listOf(
+            fireSpirit, fireSpirit,
             waterElemental,
             fireball, fireball,
             earthGolem,
@@ -36,42 +37,36 @@ class MainActivity : ComponentActivity() {
             windScout, windScout
         )
 
-        // A 'mutableListOf' is a list we can change. This is the player's "Deck".
-        // We create it by copying the master list.
-        val playerDeck: MutableList<Any> = masterDeckList.toMutableList()
+        // The player deck is now a 'MutableList<Card>'
+        val playerDeck: MutableList<Card> = masterDeckList.toMutableList()
 
-        // This is where our game logic would live.
-        // '.shuffle()' is a built-in function for lists!
         playerDeck.shuffle()
 
-        // 'mutableListOf' is also perfect for a hand, starting empty.
-        val playerHand: MutableList<Any> = mutableListOf()
+        // The player hand is also a 'MutableList<Card>'
+        val playerHand: MutableList<Card> = mutableListOf()
 
 
         // --- 3. Simulate the Game! ---
         println("--- GAME START ---")
-        println("Player's deck has ${playerDeck.size} cards.") // .size gives the count
+        println("Player's deck has ${playerDeck.size} cards.")
         println("Shuffling deck...")
 
-        // Let's simulate drawing our 7-card starting hand
         println("\n--- DRAWING HAND ---")
         repeat(7) {
-            // '.removeFirst()' takes the top card (index 0) and returns it.
-            // This is exactly like drawing from a real deck!
             val drawnCard = playerDeck.removeFirst()
-
-            // '.add()' puts the card into our hand
             playerHand.add(drawnCard)
         }
 
-        println("\n--- Player's Hand ---")
-        // We can loop through a list
+        println("\n--- Player's Hand (Now with types!) ---")
         playerHand.forEach { card ->
-            println(card) // This will print the data class info
+            // !! THIS IS THE BIG CHANGE !!
+            // We can now access '.name' and '.aetherCost' directly,
+            // because Kotlin knows every item in the list is a 'Card'.
+            println("Drew: ${card.name} (Cost: ${card.aetherCost})")
         }
 
         println("\n--- Deck After Draw ---")
-        println("Player's deck now has ${playerDeck.size} cards.")
+        println("Player's deck now has ${playerDeck.size} cards remaining.")
 
 
         // --- Default UI Code ---
