@@ -14,16 +14,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.runtime.collectAsState
 
 // Represents the four cardinal directions the player can face
 enum class Direction {
@@ -132,11 +135,15 @@ fun DungeonCrawlScreen(
 
 /**
  * A Composable that renders the 2D tile-based mini-map.
- * It now renders "UNEXPLORED" tiles as black boxes.
+ * It now renders "UNEXPLORED" tiles as black boxes and draws
+ * lines for walls on explored floor tiles.
  */
 @Composable
 private fun MiniMap(map: List<List<Int>>, playerPos: Pair<Int, Int>, facing: Direction) {
     val tileSize = 12.dp // Smaller tiles for a bigger map
+    val wallColor = Color.Gray.copy(alpha = 0.7f)
+    val wallThickness = 1.5.dp.value
+
     Column(
         modifier = Modifier
             .padding(vertical = 16.dp)
@@ -147,9 +154,10 @@ private fun MiniMap(map: List<List<Int>>, playerPos: Pair<Int, Int>, facing: Dir
             Row {
                 row.forEachIndexed { x, tile ->
                     val isPlayerPos = (playerPos.first == x && playerPos.second == y)
+
+                    // Set the base color for the tile
                     val tileColor = when (tile) {
-                        TILE_UNEXPLORED -> Color.Black
-                        TILE_WALL -> Color.Gray.copy(alpha = 0.5f)
+                        TILE_WALL, TILE_UNEXPLORED -> Color.Black // Walls and unexplored are black
                         TILE_DOOR -> Color.Yellow.copy(alpha = 0.7f)
                         TILE_ENCOUNTER -> Color.Red.copy(alpha = 0.7f)
                         else -> Color.DarkGray // Floor / Start
@@ -159,7 +167,31 @@ private fun MiniMap(map: List<List<Int>>, playerPos: Pair<Int, Int>, facing: Dir
                         modifier = Modifier
                             .size(tileSize)
                             .background(tileColor)
-                            .border(0.5.dp, Color.Gray.copy(alpha = 0.2f)), // Faint grid
+                            // --- NEW: Draw wall borders conditionally ---
+                            .drawWithContent {
+                                // Draw the tile's base content (the background color)
+                                drawContent()
+
+                                // Only draw walls for explored, non-wall tiles
+                                if (tile != TILE_WALL && tile != TILE_UNEXPLORED) {
+                                    // Check North
+                                    if (map.getOrNull(y - 1)?.getOrNull(x) == TILE_WALL) {
+                                        drawLine(wallColor, Offset(0f, 0f), Offset(size.width, 0f), wallThickness, StrokeCap.Square)
+                                    }
+                                    // Check South
+                                    if (map.getOrNull(y + 1)?.getOrNull(x) == TILE_WALL) {
+                                        drawLine(wallColor, Offset(0f, size.height), Offset(size.width, size.height), wallThickness, StrokeCap.Square)
+                                    }
+                                    // Check West
+                                    if (map.getOrNull(y)?.getOrNull(x - 1) == TILE_WALL) {
+                                        drawLine(wallColor, Offset(0f, 0f), Offset(0f, size.height), wallThickness, StrokeCap.Square)
+                                    }
+                                    // Check East
+                                    if (map.getOrNull(y)?.getOrNull(x + 1) == TILE_WALL) {
+                                        drawLine(wallColor, Offset(size.width, 0f), Offset(size.width, size.height), wallThickness, StrokeCap.Square)
+                                    }
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         if (isPlayerPos) {
