@@ -22,6 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
 
 // Represents the four cardinal directions the player can face
 enum class Direction {
@@ -29,114 +31,23 @@ enum class Direction {
 }
 
 /**
- * A hard-coded 5x5 dungeon map for our first prototype.
- * 0 = Wall
- * 1 = Hallway
- * 2 = Door
- * 3 = ENCOUNTER TILE  <-- NEW TILE
- * 9 = Player Start
- */
-private val dungeonMap = listOf(
-    listOf(0, 0, 0, 0, 0),
-    listOf(0, 9, 1, 3, 0), // <-- Added '3' for encounter
-    listOf(0, 0, 0, 2, 0),
-    listOf(0, 1, 1, 1, 0),
-    listOf(0, 0, 0, 0, 0)
-)
-
-// Helper function to find the starting position (tile '9')
-private fun getStartPosition(): Pair<Int, Int> {
-    dungeonMap.forEachIndexed { y, row ->
-        row.forEachIndexed { x, tile ->
-            if (tile == 9) {
-                return Pair(x, y)
-            }
-        }
-    }
-    return Pair(1, 1) // Fallback
-}
-
-/**
  * The main screen for the first-person dungeon crawler.
- * This Composable manages the game state (player position, facing)
- * and displays the viewport, mini-map, and controls.
+ * This Composable is now "dumb". It just displays state from
+ * the DungeonViewModel and sends events (button clicks) to it.
  *
  * @param userId The logged-in user's ID.
- * @param onStartBattle A new callback function to tell MainActivity
+ * @param onStartBattle A callback function to tell MainActivity
  * that we need to switch to the BattleScreen.
+ * @param vm The ViewModel that holds all game state and logic.
  */
 @Composable
 fun DungeonCrawlScreen(
     userId: String?,
-    onStartBattle: () -> Unit // <-- NEW PARAMETER
+    onStartBattle: () -> Unit,
+    vm: DungeonViewModel = viewModel() // Get the ViewModel instance
 ) {
-    // --- Game State ---
-    // The player's current X, Y position on the map
-    var playerPos by remember { mutableStateOf(getStartPosition()) }
-    // The direction the player is currently facing
-    var playerFacing by remember { mutableStateOf(Direction.NORTH) }
-    // A message to show in the "viewport"
-    var gameMessage by remember { mutableStateOf("You enter the dungeon.") }
-
-    // --- Game Logic ---
-    val onTurnLeft = {
-        playerFacing = when (playerFacing) {
-            Direction.NORTH -> Direction.WEST
-            Direction.WEST -> Direction.SOUTH
-            Direction.SOUTH -> Direction.EAST
-            Direction.EAST -> Direction.NORTH
-        }
-        gameMessage = "You turn left."
-    }
-
-    val onTurnRight = {
-        playerFacing = when (playerFacing) {
-            Direction.NORTH -> Direction.EAST
-            Direction.EAST -> Direction.SOUTH
-            Direction.SOUTH -> Direction.WEST
-            Direction.WEST -> Direction.NORTH
-        }
-        gameMessage = "You turn right."
-    }
-
-    val onMoveForward = {
-        val (currentX, currentY) = playerPos
-        val (nextX, nextY) = when (playerFacing) {
-            Direction.NORTH -> currentX to currentY - 1
-            Direction.SOUTH -> currentX to currentY + 1
-            Direction.WEST -> currentX - 1 to currentY
-            Direction.EAST -> currentX + 1 to currentY
-        }
-
-        // Check for collision with map boundaries or walls
-        val nextTile = dungeonMap.getOrNull(nextY)?.getOrNull(nextX)
-        when (nextTile) {
-            null, 0 -> {
-                // Hit a wall or out-of-bounds
-                gameMessage = "A cold, damp wall blocks your path."
-            }
-            1, 9 -> {
-                // Moved to a hallway or the start tile
-                playerPos = nextX to nextY
-                gameMessage = "You walk forward."
-            }
-            2 -> {
-                // Found a door
-                playerPos = nextX to nextY
-                gameMessage = "You found a door!"
-                // TODO: Add logic to go to next level or trigger event
-            }
-            // *** NEW BATTLE LOGIC ***
-            3 -> {
-                // Stepped on an encounter tile!
-                playerPos = nextX to nextY
-                gameMessage = "You are ambushed!"
-                // Trigger the callback to switch screens
-                onStartBattle()
-            }
-            // **************************
-        }
-    }
+    // Collect all UI state from the ViewModel
+    val uiState by vm.uiState.collectAsState()
 
     // --- UI Layout ---
     Column(
@@ -149,12 +60,12 @@ fun DungeonCrawlScreen(
     ) {
         // Top: Status bar (for debugging and player info)
         Text(
-            text = "User: $userId | Pos: $playerPos | Facing: $playerFacing",
+            text = "User: $userId | Pos: ${uiState.playerPos} | Facing: ${uiState.playerFacing}",
             color = Color.White,
             fontSize = 12.sp
         )
 
-        // Center: The "Viewport"
+        // Center: The "Viewport" (Our future 2D/3D renderer)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -164,7 +75,7 @@ fun DungeonCrawlScreen(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = gameMessage,
+                text = uiState.gameMessage, // <-- Display message from ViewModel
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -174,7 +85,11 @@ fun DungeonCrawlScreen(
         }
 
         // Middle: The Mini-Map
-        MiniMap(map = dungeonMap, playerPos = playerPos, facing = playerFacing)
+        MiniMap(
+            map = uiState.visibleMap, // <-- Display the "visible" map
+            playerPos = uiState.playerPos,
+            facing = uiState.playerFacing
+        )
 
         // Bottom: Navigation Controls
         Row(
@@ -186,7 +101,7 @@ fun DungeonCrawlScreen(
         ) {
             // Turn Left Button
             Button(
-                onClick = onTurnLeft,
+                onClick = { vm.onTurnLeft() }, // <-- Call ViewModel function
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 modifier = Modifier.size(80.dp)
             ) {
@@ -195,7 +110,8 @@ fun DungeonCrawlScreen(
 
             // Move Forward Button
             Button(
-                onClick = onMoveForward,
+                // Pass the onStartBattle callback to the ViewModel
+                onClick = { vm.onMoveForward(onStartBattle) }, // <-- Call ViewModel function
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 modifier = Modifier.size(80.dp)
             ) {
@@ -204,7 +120,7 @@ fun DungeonCrawlScreen(
 
             // Turn Right Button
             Button(
-                onClick = onTurnRight,
+                onClick = { vm.onTurnRight() }, // <-- Call ViewModel function
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 modifier = Modifier.size(80.dp)
             ) {
@@ -216,35 +132,38 @@ fun DungeonCrawlScreen(
 
 /**
  * A Composable that renders the 2D tile-based mini-map.
+ * It now renders "UNEXPLORED" tiles as black boxes.
  */
 @Composable
 private fun MiniMap(map: List<List<Int>>, playerPos: Pair<Int, Int>, facing: Direction) {
-    val tileSize = 24.dp // The size of each tile on the map
+    val tileSize = 12.dp // Smaller tiles for a bigger map
     Column(
         modifier = Modifier
             .padding(vertical = 16.dp)
             .border(1.dp, Color.Gray)
+            .background(Color.Black) // Unexplored area is black
     ) {
         map.forEachIndexed { y, row ->
             Row {
                 row.forEachIndexed { x, tile ->
                     val isPlayerPos = (playerPos.first == x && playerPos.second == y)
                     val tileColor = when (tile) {
-                        0 -> Color.Gray.copy(alpha = 0.5f) // Wall
-                        2 -> Color.Yellow.copy(alpha = 0.7f) // Door
-                        3 -> Color.Red.copy(alpha = 0.7f) // Encounter
-                        else -> Color.DarkGray // Hallway / Start
+                        TILE_UNEXPLORED -> Color.Black
+                        TILE_WALL -> Color.Gray.copy(alpha = 0.5f)
+                        TILE_DOOR -> Color.Yellow.copy(alpha = 0.7f)
+                        TILE_ENCOUNTER -> Color.Red.copy(alpha = 0.7f)
+                        else -> Color.DarkGray // Floor / Start
                     }
 
                     Box(
                         modifier = Modifier
                             .size(tileSize)
                             .background(tileColor)
-                            .border(0.5.dp, Color.Black),
+                            .border(0.5.dp, Color.Gray.copy(alpha = 0.2f)), // Faint grid
                         contentAlignment = Alignment.Center
                     ) {
                         if (isPlayerPos) {
-                            // Draw the player icon, rotated to match their facing direction
+                            // Draw the player icon
                             val rotation = when (facing) {
                                 Direction.NORTH -> 0f
                                 Direction.EAST -> 90f

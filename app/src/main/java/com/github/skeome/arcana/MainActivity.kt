@@ -4,21 +4,15 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
+import androidx.activity.viewModels // <-- Import viewModels
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.github.skeome.arcana.ui.theme.ArcanaTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
@@ -38,6 +32,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
     private val tag = "ArcanaMainActivity"
+
+    // Instantiate the ViewModel.
+    // This ViewModel will be kept alive across configuration changes (like screen rotation)
+    private val dungeonViewModel: DungeonViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,16 +63,16 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     // This is our main game state router.
-                    // It decides which screen to show the player.
                     when (gameState) {
                         GameState.DUNGEON_CRAWL -> {
-                            // Show the dungeon
+                            // Show the dungeon, passing in the single ViewModel instance
                             DungeonCrawlScreen(
                                 userId = userId,
                                 onStartBattle = {
                                     Log.d(tag, "BATTLE TRIGGERED!")
                                     gameState = GameState.BATTLE
-                                }
+                                },
+                                vm = dungeonViewModel // <-- Pass the ViewModel
                             )
                         }
                         GameState.BATTLE -> {

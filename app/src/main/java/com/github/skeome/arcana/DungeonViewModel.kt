@@ -1,185 +1,175 @@
 package com.github.skeome.arcana
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Navigation
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlin.random.Random
 
-// Represents the four cardinal directions the player can face
-enum class Direction {
-    NORTH, EAST, SOUTH, WEST
-}
+// Tile Types
+const val TILE_UNEXPLORED = -1
+const val TILE_WALL = 0
+const val TILE_FLOOR = 1
+const val TILE_DOOR = 2
+const val TILE_ENCOUNTER = 3
+const val TILE_START = 9
 
-/**
- * The main screen for the first-person dungeon crawler.
- * This Composable is now "dumb". It just displays state from
- * the DungeonViewModel and sends events (button clicks) to it.
- *
- * @param userId The logged-in user's ID.
- * @param onStartBattle A callback function to tell MainActivity
- * that we need to switch to the BattleScreen.
- * @param vm The ViewModel that holds all game state and logic.
- */
-@Composable
-fun DungeonCrawlScreen(
-    userId: String?,
-    onStartBattle: () -> Unit,
-    vm: DungeonViewModel = viewModel() // Get the ViewModel instance
-) {
-    // Collect all UI state from the ViewModel
-    val uiState by vm.uiState.collectAsState()
+data class DungeonUiState(
+    val visibleMap: List<List<Int>> = emptyList(),
+    val playerPos: Pair<Int, Int> = 0 to 0,
+    val playerFacing: Direction = Direction.NORTH,
+    val gameMessage: String = "Loading..."
+)
 
-    // --- UI Layout ---
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black) // Classic dungeon crawl aesthetic
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Top: Status bar (for debugging and player info)
-        Text(
-            text = "User: $userId | Pos: ${uiState.playerPos} | Facing: ${uiState.playerFacing}",
-            color = Color.White,
-            fontSize = 12.sp
-        )
+class DungeonViewModel : ViewModel() {
 
-        // Center: The "Viewport" (Our future 2D/3D renderer)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .background(Color.DarkGray)
-                .border(2.dp, Color.White),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = uiState.gameMessage, // <-- Display message from ViewModel
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
+    // This is the "real" map that the game logic uses
+    private var _internalMap: List<List<Int>> = emptyList()
 
-        // Middle: The Mini-Map
-        MiniMap(
-            map = uiState.visibleMap, // <-- Display the "visible" map
-            playerPos = uiState.playerPos,
-            facing = uiState.playerFacing
-        )
+    // This holds all the UI state, including the "visible" map
+    private val _uiState = MutableStateFlow(DungeonUiState())
+    val uiState: StateFlow<DungeonUiState> = _uiState.asStateFlow()
 
-        // Bottom: Navigation Controls
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Turn Left Button
-            Button(
-                onClick = { vm.onTurnLeft() }, // <-- Call ViewModel function
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier.size(80.dp)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Turn Left", modifier = Modifier.fillMaxSize())
-            }
-
-            // Move Forward Button
-            Button(
-                // Pass the onStartBattle callback to the ViewModel
-                onClick = { vm.onMoveForward(onStartBattle) }, // <-- Call ViewModel function
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier.size(80.dp)
-            ) {
-                Icon(Icons.Filled.ArrowUpward, "Move Forward", modifier = Modifier.fillMaxSize())
-            }
-
-            // Turn Right Button
-            Button(
-                onClick = { vm.onTurnRight() }, // <-- Call ViewModel function
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier.size(80.dp)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, "Turn Right", modifier = Modifier.fillMaxSize())
-            }
-        }
+    init {
+        generateDungeon(25, 25)
     }
-}
 
-/**
- * A Composable that renders the 2D tile-based mini-map.
- * It now renders "UNEXPLORED" tiles as black boxes.
- */
-@Composable
-private fun MiniMap(map: List<List<Int>>, playerPos: Pair<Int, Int>, facing: Direction) {
-    val tileSize = 12.dp // Smaller tiles for a bigger map
-    Column(
-        modifier = Modifier
-            .padding(vertical = 16.dp)
-            .border(1.dp, Color.Gray)
-            .background(Color.Black) // Unexplored area is black
-    ) {
-        map.forEachIndexed { y, row ->
-            Row {
-                row.forEachIndexed { x, tile ->
-                    val isPlayerPos = (playerPos.first == x && playerPos.second == y)
-                    val tileColor = when (tile) {
-                        TILE_UNEXPLORED -> Color.Black
-                        TILE_WALL -> Color.Gray.copy(alpha = 0.5f)
-                        TILE_DOOR -> Color.Yellow.copy(alpha = 0.7f)
-                        TILE_ENCOUNTER -> Color.Red.copy(alpha = 0.7f)
-                        else -> Color.DarkGray // Floor / Start
-                    }
+    private fun generateDungeon(width: Int, height: Int) {
+        // --- 1. Create a grid full of walls ---
+        val map = MutableList(height) { MutableList(width) { TILE_WALL } }
 
-                    Box(
-                        modifier = Modifier
-                            .size(tileSize)
-                            .background(tileColor)
-                            .border(0.5.dp, Color.Gray.copy(alpha = 0.2f)), // Faint grid
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isPlayerPos) {
-                            // Draw the player icon
-                            val rotation = when (facing) {
-                                Direction.NORTH -> 0f
-                                Direction.EAST -> 90f
-                                Direction.SOUTH -> 180f
-                                Direction.WEST -> 270f
-                            }
-                            Icon(
-                                Icons.Filled.Navigation,
-                                "Player",
-                                modifier = Modifier
-                                    .fillMaxSize(0.8f)
-                                    .rotate(rotation),
-                                tint = Color.Cyan
-                            )
-                        }
+        // --- 2. Run the "Random Walk" algorithm ---
+        val random = Random.Default
+        var currentX = width / 2
+        var currentY = height / 2
+        map[currentY][currentX] = TILE_FLOOR // Start point
+
+        val floorTiles = mutableListOf<Pair<Int, Int>>()
+        floorTiles.add(currentX to currentY)
+
+        val totalFloorTiles = (width * height * 0.25).toInt() // Carve 25% of the map as floor
+        var tilesCarved = 1
+
+        while (tilesCarved < totalFloorTiles) {
+            // Move in a random direction
+            when (random.nextInt(4)) {
+                0 -> currentY = (currentY - 1).coerceIn(1, height - 2) // North
+                1 -> currentY = (currentY + 1).coerceIn(1, height - 2) // South
+                2 -> currentX = (currentX - 1).coerceIn(1, width - 2)  // West
+                3 -> currentX = (currentX + 1).coerceIn(1, width - 2)  // East
+            }
+
+            if (map[currentY][currentX] == TILE_WALL) {
+                map[currentY][currentX] = TILE_FLOOR
+                tilesCarved++
+                floorTiles.add(currentX to currentY)
+            }
+        }
+
+        // --- 3. Place special tiles ---
+        val startPos = floorTiles.removeAt(0)
+        map[startPos.second][startPos.first] = TILE_START
+
+        val doorPos = floorTiles.removeAt(floorTiles.lastIndex)
+        map[doorPos.second][doorPos.first] = TILE_DOOR
+
+        val encounterPos = floorTiles.random()
+        map[encounterPos.second][encounterPos.first] = TILE_ENCOUNTER
+
+        // --- 4. Set the maps ---
+        _internalMap = map
+        val visibleMap = List(height) { List(width) { TILE_UNEXPLORED } }
+
+        // --- 5. Set initial UI State ---
+        _uiState.value = DungeonUiState(
+            visibleMap = visibleMap,
+            playerPos = startPos,
+            playerFacing = Direction.NORTH,
+            gameMessage = "You enter the dungeon."
+        )
+
+        // Reveal the starting area
+        updateVisibility(startPos)
+    }
+
+    private fun updateVisibility(pos: Pair<Int, Int>) {
+        val (x, y) = pos
+        _uiState.update { currentState ->
+            val newVisibleMap = currentState.visibleMap.map { it.toMutableList() }
+
+            // Reveal a 3x3 area around the player (simple "torchlight")
+            for (dy in -1..1) {
+                for (dx in -1..1) {
+                    val checkY = y + dy
+                    val checkX = x + dx
+                    if (checkY in _internalMap.indices && checkX in _internalMap[0].indices) {
+                        // Copy the "real" tile to the "visible" map
+                        newVisibleMap[checkY][checkX] = _internalMap[checkY][checkX]
                     }
                 }
+            }
+            currentState.copy(visibleMap = newVisibleMap)
+        }
+    }
+
+    fun onTurnLeft() {
+        _uiState.update { currentState ->
+            val newFacing = when (currentState.playerFacing) {
+                Direction.NORTH -> Direction.WEST
+                Direction.WEST -> Direction.SOUTH
+                Direction.SOUTH -> Direction.EAST
+                Direction.EAST -> Direction.NORTH
+            }
+            currentState.copy(
+                playerFacing = newFacing,
+                gameMessage = "You turn left."
+            )
+        }
+    }
+
+    fun onTurnRight() {
+        _uiState.update { currentState ->
+            val newFacing = when (currentState.playerFacing) {
+                Direction.NORTH -> Direction.EAST
+                Direction.EAST -> Direction.SOUTH
+                Direction.SOUTH -> Direction.WEST
+                Direction.WEST -> Direction.NORTH
+            }
+            currentState.copy(
+                playerFacing = newFacing,
+                gameMessage = "You turn right."
+            )
+        }
+    }
+
+    fun onMoveForward(onStartBattle: () -> Unit) {
+        val (currentX, currentY) = _uiState.value.playerPos
+        val (nextX, nextY) = when (_uiState.value.playerFacing) {
+            Direction.NORTH -> currentX to currentY - 1
+            Direction.SOUTH -> currentX to currentY + 1
+            Direction.WEST -> currentX - 1 to currentY
+            Direction.EAST -> currentX + 1 to currentY
+        }
+
+        // Check for collision
+        when (_internalMap.getOrNull(nextY)?.getOrNull(nextX)) {
+            null, TILE_WALL -> {
+                _uiState.update { it.copy(gameMessage = "A cold, damp wall blocks your path.") }
+            }
+            TILE_FLOOR, TILE_START -> {
+                _uiState.update { it.copy(playerPos = nextX to nextY, gameMessage = "You walk forward.") }
+                updateVisibility(nextX to nextY)
+            }
+            TILE_DOOR -> {
+                _uiState.update { it.copy(playerPos = nextX to nextY, gameMessage = "You found the exit!") }
+                updateVisibility(nextX to nextY)
+                // TODO: Regenerate dungeon or go to next level
+            }
+            TILE_ENCOUNTER -> {
+                _uiState.update { it.copy(playerPos = nextX to nextY, gameMessage = "You are ambushed!") }
+                updateVisibility(nextX to nextY)
+                onStartBattle()
             }
         }
     }
