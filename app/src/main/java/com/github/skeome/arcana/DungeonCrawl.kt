@@ -160,6 +160,7 @@ private fun MiniMap(map: List<List<Int>>, playerPos: Pair<Int, Int>, facing: Dir
                         TILE_WALL, TILE_UNEXPLORED -> Color.Black // Walls and unexplored are black
                         TILE_DOOR -> Color.Yellow.copy(alpha = 0.7f)
                         TILE_ENCOUNTER -> Color.Red.copy(alpha = 0.7f)
+                        TILE_TREASURE -> Color(0xFF006400).copy(alpha = 0.7f) // <-- NEW: Dark Green
                         else -> Color.DarkGray // Floor / Start
                     }
 
@@ -167,28 +168,29 @@ private fun MiniMap(map: List<List<Int>>, playerPos: Pair<Int, Int>, facing: Dir
                         modifier = Modifier
                             .size(tileSize)
                             .background(tileColor)
-                            // --- NEW: Draw wall borders conditionally ---
+                            // --- Draw wall borders conditionally ---
                             .drawWithContent {
                                 // Draw the tile's base content (the background color)
                                 drawContent()
 
                                 // Only draw walls for explored, non-wall tiles
                                 if (tile != TILE_WALL && tile != TILE_UNEXPLORED) {
+                                    val (width, height) = size
                                     // Check North
                                     if (map.getOrNull(y - 1)?.getOrNull(x) == TILE_WALL) {
-                                        drawLine(wallColor, Offset(0f, 0f), Offset(size.width, 0f), wallThickness, StrokeCap.Square)
+                                        drawLine(wallColor, Offset(0f, 0f), Offset(width, 0f), wallThickness, StrokeCap.Square)
                                     }
                                     // Check South
                                     if (map.getOrNull(y + 1)?.getOrNull(x) == TILE_WALL) {
-                                        drawLine(wallColor, Offset(0f, size.height), Offset(size.width, size.height), wallThickness, StrokeCap.Square)
+                                        drawLine(wallColor, Offset(0f, height), Offset(width, height), wallThickness, StrokeCap.Square)
                                     }
                                     // Check West
                                     if (map.getOrNull(y)?.getOrNull(x - 1) == TILE_WALL) {
-                                        drawLine(wallColor, Offset(0f, 0f), Offset(0f, size.height), wallThickness, StrokeCap.Square)
+                                        drawLine(wallColor, Offset(0f, 0f), Offset(0f, height), wallThickness, StrokeCap.Square)
                                     }
                                     // Check East
                                     if (map.getOrNull(y)?.getOrNull(x + 1) == TILE_WALL) {
-                                        drawLine(wallColor, Offset(size.width, 0f), Offset(size.width, size.height), wallThickness, StrokeCap.Square)
+                                        drawLine(wallColor, Offset(width, 0f), Offset(width, height), wallThickness, StrokeCap.Square)
                                     }
                                 }
                             },
