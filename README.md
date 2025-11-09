@@ -54,6 +54,4 @@ The project is in the early stages of development. The core data structures for 
 
 ## Next Steps:
 
-* Setting up the Firebase backend connection.
-
 * Building the first Jetpack Compose UI screens for the game.
